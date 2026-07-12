@@ -16,14 +16,34 @@ export default function App() {
 		const last = storage.getLastMailbox();
 		return last ? { kind: "inbox", email: last } : { kind: "setup" };
 	});
+	// Сообщение об ошибке для экрана создания ящика (например, "имя занято").
+	const [setupError, setSetupError] = useState<string | null>(null);
+	// Логин, который пробовал занять пользователь — чтобы при возврате подставить
+	// его обратно в поле.
+	const [setupErrorLogin, setSetupErrorLogin] = useState<string | null>(null);
 
 	const handleCreate = useCallback((email: string) => {
 		storage.setLastMailbox(email);
+		setSetupError(null);
 		setScreen({ kind: "inbox", email });
 	}, []);
 
 	const handleChangeMailbox = useCallback(() => {
 		storage.clearLastMailbox();
+		setScreen({ kind: "setup" });
+	}, []);
+
+	const handleLeased = useCallback((email: string) => {
+		// Прилетел 403 на открытии ящика (в т.ч. при попытке создать кастомный
+		// логин, который уже занят). Возвращаемся на экран создания и
+		// показываем сообщение.
+		storage.clearLastMailbox();
+		const at = email.indexOf("@");
+		const login = at > 0 ? email.slice(0, at) : email;
+		setSetupErrorLogin(login);
+		setSetupError(
+			"Имя занято. Этот ящик арендован или уже используется — выберите другое.",
+		);
 		setScreen({ kind: "setup" });
 	}, []);
 
@@ -70,12 +90,20 @@ export default function App() {
 			</header>
 
 			<main className="app-main">
-				{screen.kind === "setup" && <MailboxSetup onCreate={handleCreate} />}
+				{screen.kind === "setup" && (
+					<MailboxSetup
+						onCreate={handleCreate}
+						errorMessage={setupError}
+						initialLogin={setupErrorLogin}
+						onErrorShown={() => setSetupError(null)}
+					/>
+				)}
 				{screen.kind === "inbox" && (
 					<InboxList
 						email={screen.email}
 						onOpenEmail={handleOpenEmail}
 						onChangeMailbox={handleChangeMailbox}
+						onLeased={() => handleLeased(screen.email)}
 					/>
 				)}
 				{screen.kind === "email" && (

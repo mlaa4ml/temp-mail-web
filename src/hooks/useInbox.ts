@@ -13,7 +13,11 @@ export type InboxState = {
 	lastFetchedAt: number | null;
 };
 
-export function useInbox(email: string | null, pollEnabled = true) {
+export function useInbox(
+	email: string | null,
+	pollEnabled = true,
+	onLeased?: () => void,
+) {
 	const [state, setState] = useState<InboxState>({
 		emails: [],
 		loading: false,
@@ -24,6 +28,7 @@ export function useInbox(email: string | null, pollEnabled = true) {
 	});
 	const abortRef = useRef<AbortController | null>(null);
 	const timerRef = useRef<number | null>(null);
+	const leasedNotifiedRef = useRef<boolean>(false);
 
 	const fetchEmails = useCallback(
 		async (isInitial: boolean) => {
@@ -36,6 +41,7 @@ export function useInbox(email: string | null, pollEnabled = true) {
 					leased: false,
 					lastFetchedAt: null,
 				});
+				leasedNotifiedRef.current = false;
 				return;
 			}
 
@@ -74,6 +80,10 @@ export function useInbox(email: string | null, pollEnabled = true) {
 						leased: e.isLeased,
 						lastFetchedAt: null,
 					});
+					if (e.isLeased && !leasedNotifiedRef.current) {
+						leasedNotifiedRef.current = true;
+						onLeased?.();
+					}
 					return;
 				}
 				setState({

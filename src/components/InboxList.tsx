@@ -7,10 +7,20 @@ type Props = {
 	email: string;
 	onOpenEmail: (id: string) => void;
 	onChangeMailbox: () => void;
+	/**
+	 * Вызывается один раз при первом 403 на ящике (арендован через Telegram
+	 * или имя занято другим ящиком). Используется для возврата на экран
+	 * создания ящика с сообщением «имя занято».
+	 */
+	onLeased?: () => void;
 };
 
-export function InboxList({ email, onOpenEmail, onChangeMailbox }: Props) {
-	const { emails, loading, refreshing, error, leased, lastFetchedAt, refresh } = useInbox(email);
+export function InboxList({ email, onOpenEmail, onChangeMailbox, onLeased }: Props) {
+	const { emails, loading, refreshing, error, leased, lastFetchedAt, refresh } = useInbox(
+		email,
+		true,
+		onLeased,
+	);
 
 	return (
 		<div className="inbox">

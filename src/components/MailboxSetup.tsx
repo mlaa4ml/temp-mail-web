@@ -1,32 +1,41 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDomains } from "@/hooks/useDomains";
 import { storage } from "@/utils/storage";
 import { generateRandomId } from "@/utils/random";
-import { api } from "@/api/client";
-import type { MailboxAvailability, UnavailabilityReason } from "@/api/types";
+// import { api } from "@/api/client"; // см. DISABLED-блок ниже
 import { DomainSelect } from "./DomainSelect";
 import { CopyButton } from "./CopyButton";
 
 type Props = {
 	onCreate: (email: string) => void;
+	/**
+	 * Сообщение об ошибке, которое нужно показать на экране создания ящика
+	 * (например, «имя занято» после 403). После первого показа App сбрасывает
+	 * его через `onErrorShown`.
+	 */
+	errorMessage?: string | null;
+	/**
+	 * Логин, который нужно подставить в поле ввода при возврате с ошибкой.
+	 */
+	initialLogin?: string | null;
+	/**
+	 * Колбэк, который MailboxSetup дёргает, когда сообщение об ошибке
+	 * отображено (чтобы App мог его сбросить).
+	 */
+	onErrorShown?: () => void;
 };
 
 type Mode = "random" | "custom";
 
-type AvailabilityStatus =
-	| { kind: "idle" }
-	| { kind: "checking" }
-	| { kind: "ok"; email: string }
-	| { kind: "unavailable"; reason: UnavailabilityReason; message: string }
-	| { kind: "error"; message: string };
-
-const DEBOUNCE_MS = 400;
-
-// Локальная синтаксическая проверка (зеркало серверной из temp-mail-on11/utils/validateEmailLogin.ts)
+// Локальная синтаксическая проверка (зеркало серверной из temp-mail-on11/utils/validateEmailLogin.ts).
+// Используется только для мгновенной валидации ввода (чтобы кнопка не светилась
+// при очевидно битом логине). Реальная занятость проверяется воркером по 403.
 const LOGIN_REGEX = /^[a-z0-9._-]+$/;
 const RESERVED = new Set(["on11"]);
 
-function clientValidateLogin(raw: string): { ok: true } | { ok: false; message: string } {
+function clientValidateLogin(
+	raw: string,
+): { ok: true } | { ok: false; message: string } {
 	const v = raw.trim().toLowerCase();
 	if (!v) return { ok: false, message: "Введите имя ящика." };
 	if (v.length > 64) return { ok: false, message: "Слишком длинное имя (макс. 64)." };
@@ -45,13 +54,18 @@ function clientValidateLogin(raw: string): { ok: true } | { ok: false; message: 
 	return { ok: true };
 }
 
-export function MailboxSetup({ onCreate }: Props) {
+export function MailboxSetup({
+	onCreate,
+	errorMessage,
+	initialLogin,
+	onErrorShown,
+}: Props) {
 	const { domains, loading, error } = useDomains();
 	const [mode, setMode] = useState<Mode>("random");
 	const [domain, setDomain] = useState<string>("");
 	const [preview, setPreview] = useState<string | null>(null);
 	const [login, setLogin] = useState<string>("");
-	const [status, setStatus] = useState<AvailabilityStatus>({ kind: "idle" });
+	const [loginError, setLoginError] = useState<string | null>(null);
 
 	// Восстанавливаем последний ящик при загрузке
 	useEffect(() => {
@@ -68,6 +82,23 @@ export function MailboxSetup({ onCreate }: Props) {
 		}
 	}, [domains, domain]);
 
+	// При возврате с 403 (errorMessage + initialLogin) — переключаемся в custom
+	// и подставляем введённый логин в поле.
+	const lastSeenErrorRef = useRef<string | null>(null);
+	useEffect(() => {
+		if (
+			errorMessage &&
+			initialLogin &&
+			lastSeenErrorRef.current !== errorMessage
+		) {
+			lastSeenErrorRef.current = errorMessage;
+			setMode("custom");
+			setLogin(initialLogin);
+			setLoginError(null);
+			onErrorShown?.();
+		}
+	}, [errorMessage, initialLogin, onErrorShown]);
+
 	// === Случайный режим ===
 	const handleCreateRandom = () => {
 		if (!domain) return;
@@ -77,89 +108,38 @@ export function MailboxSetup({ onCreate }: Props) {
 		onCreate(email);
 	};
 
-	// === Custom-режим: проверка доступности с дебаунсом ===
-	const checkRef = useRef<{ controller: AbortController; timer: number | null } | null>(null);
-
-	const runAvailabilityCheck = useCallback(
-		(loginValue: string, domainValue: string) => {
-			// Отменяем предыдущий запрос/таймер
-			if (checkRef.current) {
-				if (checkRef.current.timer !== null) {
-					window.clearTimeout(checkRef.current.timer);
-				}
-				checkRef.current.controller.abort();
-			}
-
-			const controller = new AbortController();
-			const ref = { controller, timer: null as number | null };
-			checkRef.current = ref;
-
-			const run = async () => {
-				setStatus({ kind: "checking" });
-				try {
-					const result: MailboxAvailability = await api.checkMailboxAvailability(
-						loginValue,
-						domainValue,
-						{ signal: controller.signal },
-					);
-					if (controller.signal.aborted) return;
-					if (result.available) {
-						setStatus({ kind: "ok", email: result.email ?? `${loginValue}@${domainValue}` });
-					} else {
-						setStatus({
-							kind: "unavailable",
-							reason: result.reason ?? "invalid_login",
-							message: result.message ?? "Имя недоступно.",
-						});
-					}
-				} catch (e) {
-					if (controller.signal.aborted) return;
-					const msg = e instanceof Error ? e.message : "Ошибка проверки";
-					setStatus({ kind: "error", message: msg });
-				}
-			};
-
-			ref.timer = window.setTimeout(run, DEBOUNCE_MS);
-		},
-		[],
-	);
-
+	// === Custom-режим: локальная синтаксическая проверка, без серверного availability ===
 	const handleLoginChange = (raw: string) => {
 		setLogin(raw);
-		const trimmed = raw.trim().toLowerCase();
+		const trimmed = raw.trim();
 		if (!trimmed) {
-			setStatus({ kind: "idle" });
+			setLoginError(null);
 			return;
 		}
-		// Сначала локальная синтаксическая проверка (быстрый отклик)
 		const local = clientValidateLogin(raw);
-		if (!local.ok) {
-			setStatus({ kind: "unavailable", reason: "invalid_login", message: local.message });
-			return;
-		}
-		if (!domain) {
-			// Домен ещё не выбран — отложим проверку
-			setStatus({ kind: "idle" });
-			return;
-		}
-		runAvailabilityCheck(trimmed, domain);
+		setLoginError(local.ok ? null : local.message);
 	};
 
 	const handleDomainChange = (newDomain: string) => {
 		setDomain(newDomain);
-		if (mode === "custom" && login.trim()) {
-			runAvailabilityCheck(login.trim().toLowerCase(), newDomain);
-		}
 	};
 
 	const handleModeChange = (newMode: Mode) => {
 		setMode(newMode);
-		setStatus({ kind: "idle" });
+		setLoginError(null);
 	};
 
 	const handleCreateCustom = () => {
-		if (status.kind !== "ok") return;
-		const email = status.email;
+		if (!domain) return;
+		if (loginError) return;
+		const trimmed = login.trim();
+		if (!trimmed) return;
+		const local = clientValidateLogin(trimmed);
+		if (!local.ok) {
+			setLoginError(local.message);
+			return;
+		}
+		const email = `${trimmed.toLowerCase()}@${domain}`;
 		storage.setLastMailbox(email);
 		onCreate(email);
 	};
@@ -167,16 +147,20 @@ export function MailboxSetup({ onCreate }: Props) {
 	const handleSuggestLogin = () => {
 		const suggested = generateRandomId(10);
 		setLogin(suggested);
-		if (domain) {
-			runAvailabilityCheck(suggested, domain);
-		}
+		setLoginError(null);
 	};
 
 	const handleOpenExisting = () => {
 		if (preview) onCreate(preview);
 	};
 
-	const isCustomValid = status.kind === "ok";
+	const trimmedLogin = login.trim();
+	const localCheck = trimmedLogin ? clientValidateLogin(trimmedLogin) : null;
+	const isCustomValid =
+		Boolean(domain) &&
+		trimmedLogin.length > 0 &&
+		!loginError &&
+		(localCheck?.ok ?? false);
 
 	return (
 		<div className="setup">
@@ -190,6 +174,12 @@ export function MailboxSetup({ onCreate }: Props) {
 			{error && (
 				<div className="state state-error">
 					Не удалось получить список доменов: {error}
+				</div>
+			)}
+
+			{errorMessage && (
+				<div className="state state-error" role="alert">
+					{errorMessage}
 				</div>
 			)}
 
@@ -268,7 +258,15 @@ export function MailboxSetup({ onCreate }: Props) {
 								</button>
 							</div>
 
-							<AvailabilityView status={status} domain={domain} />
+							{loginError ? (
+								<div className="availability availability--bad" role="alert">
+									⚠ {loginError}
+								</div>
+							) : (
+								<div className="availability availability--idle">
+									Имя пройдёт локальную проверку. Занятость определяется по 403 при попытке открыть ящик.
+								</div>
+							)}
 
 							<button
 								type="button"
@@ -310,32 +308,33 @@ export function MailboxSetup({ onCreate }: Props) {
 	);
 }
 
-function AvailabilityView({
-	status,
-	domain,
-}: {
-	status: AvailabilityStatus;
-	domain: string;
-}) {
-	if (status.kind === "idle") {
-		return (
-			<div className="availability availability--idle">
-				Введите имя — мы проверим, свободно ли оно.
-			</div>
-		);
-	}
-	if (status.kind === "checking") {
-		return <div className="availability availability--checking">Проверяем…</div>;
-	}
-	if (status.kind === "ok") {
-		return (
-			<div className="availability availability--ok">
-				✓ Свободно: <strong>{status.email || `${domain}`}</strong>
-			</div>
-		);
-	}
-	if (status.kind === "unavailable") {
-		return <div className="availability availability--bad">⚠ {status.message}</div>;
-	}
-	return <div className="availability availability--bad">⚠ {status.message}</div>;
-}
+/* =============================================================================
+ * DISABLED: предварительная проверка занятости через /mailbox/availability.
+ *
+ * Сейчас (пока воркер на сервере ещё не задеплоен с эндпоинтом
+ * `GET /mailbox/availability`) проверка делается неявно через 403 на
+ * `GET /emails/{email}`. Когда сервер будет обновлён, нужно:
+ *   1. снять `// import { api } from "@/api/client";` в шапке файла
+ *   2. вернуть типы ниже и `runAvailabilityCheck` + `useEffect`-подписку
+ *   3. вернуть условие `disabled={!isCustomValid}` где `isCustomValid = status.kind === "ok"`
+ *   4. вернуть `AvailabilityView` (его определение тоже ниже)
+ *
+ * До тех пор ручной ввод логина проходит только локальную синтаксическую
+ * проверку, а реальная занятость ловится на 403 в `useInbox` и превращается
+ * в возврат на экран создания с сообщением.
+ * ============================================================================= */
+
+/*
+import type { MailboxAvailability, UnavailabilityReason } from "@/api/types";
+
+type AvailabilityStatus =
+	| { kind: "idle" }
+	| { kind: "checking" }
+	| { kind: "ok"; email: string }
+	| { kind: "unavailable"; reason: UnavailabilityReason; message: string }
+	| { kind: "error"; message: string };
+
+const DEBOUNCE_MS = 400;
+
+// ... и весь старый код проверки ...
+*/
