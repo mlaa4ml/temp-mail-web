@@ -31,6 +31,8 @@ function safeRemove(key: string): void {
 	}
 }
 
+export type ThemePreference = "light" | "dark";
+
 export const storage = {
 	getLastMailbox(): string | null {
 		return safeGet<string>("last-mailbox");
@@ -40,5 +42,13 @@ export const storage = {
 	},
 	clearLastMailbox(): void {
 		safeRemove("last-mailbox");
+	},
+
+	getTheme(): ThemePreference | null {
+		const v = safeGet<ThemePreference>("theme");
+		return v === "light" || v === "dark" ? v : null;
+	},
+	setTheme(theme: ThemePreference): void {
+		safeSet("theme", theme);
 	},
 };

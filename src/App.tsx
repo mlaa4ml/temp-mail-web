@@ -3,6 +3,7 @@ import { MailboxSetup } from "@/components/MailboxSetup";
 import { InboxList } from "@/components/InboxList";
 import { EmailView } from "@/components/EmailView";
 import { ToastHost } from "@/components/Toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { storage } from "@/utils/storage";
 
 type Screen =
@@ -54,15 +55,18 @@ export default function App() {
 				>
 					<span className="app-brand-icon">✉</span> Temp Mail
 				</button>
-				{screen.kind !== "setup" && (
-					<button
-						type="button"
-						className="btn btn-ghost"
-						onClick={handleChangeMailbox}
-					>
-						Новый ящик
-					</button>
-				)}
+				<div className="app-header-actions">
+					{screen.kind !== "setup" && (
+						<button
+							type="button"
+							className="btn btn-ghost"
+							onClick={handleChangeMailbox}
+						>
+							Новый ящик
+						</button>
+					)}
+					<ThemeToggle />
+				</div>
 			</header>
 
 			<main className="app-main">

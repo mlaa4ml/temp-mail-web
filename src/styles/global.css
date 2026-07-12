@@ -111,6 +111,14 @@ pre {
 	padding: 24px 20px 48px;
 }
 
+.app-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
 /* ====== Кнопки ====== */
 .btn {
 	display: inline-flex;
@@ -604,9 +612,25 @@ pre {
 	}
 }
 
-/* ====== Светлая тема (auto) ====== */
+/* ====== Светлая тема ====== */
+/* Явный выбор пользователя (ставится JS-ом через document.documentElement.dataset.theme) */
+:root[data-theme="light"] {
+	--bg: #f5f7fb;
+	--bg-elev: #ffffff;
+	--bg-elev-2: #f0f3f9;
+	--border: #e1e6ef;
+	--border-strong: #cbd2e0;
+	--text: #1a2233;
+	--text-dim: #4a5568;
+	--text-mute: #8a94a6;
+	--shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+	--email-text-bg: #f8fafc;
+	--toast-bg: #ffffff;
+}
+
+/* Системная тема (когда пользователь ещё не сделал явный выбор — атрибут data-theme не задан) */
 @media (prefers-color-scheme: light) {
-	:root {
+	:root:not([data-theme]) {
 		--bg: #f5f7fb;
 		--bg-elev: #ffffff;
 		--bg-elev-2: #f0f3f9;
@@ -616,11 +640,46 @@ pre {
 		--text-dim: #4a5568;
 		--text-mute: #8a94a6;
 		--shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+		--email-text-bg: #f8fafc;
+		--toast-bg: #ffffff;
 	}
-	.email-text {
-		background: #f8fafc;
-	}
-	.toast {
-		background: #fff;
-	}
+}
+
+.email-text {
+	background: var(--email-text-bg, var(--bg-elev-2));
+}
+.toast {
+	background: var(--toast-bg, var(--bg-elev-2));
+}
+
+/* ====== Плавный переход при смене темы ====== */
+body,
+.btn,
+.toast,
+.email-row,
+.email-card,
+.setup-card,
+.setup-recent,
+.inbox-header,
+.email-list,
+.attachment-item,
+.address,
+.select,
+.app-header {
+	transition:
+		background-color 0.2s ease,
+		color 0.2s ease,
+		border-color 0.2s ease;
+}
+
+/* ====== Кнопка переключения темы ====== */
+.theme-toggle {
+	font-size: 16px;
+	line-height: 1;
+	padding: 6px 10px;
+}
+.theme-toggle span[aria-hidden="true"] {
+	display: inline-block;
+	min-width: 1em;
+	text-align: center;
 }
