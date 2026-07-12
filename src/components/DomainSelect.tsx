@@ -1,20 +1,22 @@
 type Props = {
+	id?: string;
 	domains: string[];
 	value: string;
 	onChange: (domain: string) => void;
 	disabled?: boolean;
 };
 
-export function DomainSelect({ domains, value, onChange, disabled }: Props) {
+export function DomainSelect({ id, domains, value, onChange, disabled }: Props) {
 	if (domains.length === 0) {
 		return (
-			<select className="select" disabled>
+			<select id={id} className="select" disabled>
 				<option>Загрузка доменов…</option>
 			</select>
 		);
 	}
 	return (
 		<select
+			id={id}
 			className="select"
 			value={value}
 			onChange={(e) => onChange(e.target.value)}
