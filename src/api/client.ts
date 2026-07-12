@@ -6,6 +6,7 @@ import type {
 	Email,
 	EmailCount,
 	EmailSummary,
+	MailboxAvailability,
 } from "./types";
 
 /**
@@ -78,6 +79,19 @@ export const api = {
 
 	getDomains(): Promise<string[]> {
 		return request<string[]>("/domains");
+	},
+
+	/**
+	 * Проверяет доступность custom-логина для указанного домена.
+	 * Используется на экране создания ящика, чтобы отсекать занятые/недопустимые имена.
+	 */
+	checkMailboxAvailability(
+		login: string,
+		domain: string,
+		init?: RequestInit,
+	): Promise<MailboxAvailability> {
+		const q = new URLSearchParams({ login, domain });
+		return request<MailboxAvailability>(`/mailbox/availability?${q.toString()}`, init);
 	},
 
 	getEmails(

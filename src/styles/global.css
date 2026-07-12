@@ -214,6 +214,131 @@ pre {
 	opacity: 0.6;
 }
 
+/* ====== Поле ввода с суффиксом (для custom-логина) ====== */
+.input-with-suffix {
+	position: relative;
+	display: flex;
+	align-items: stretch;
+	gap: 0;
+}
+
+.text-input {
+	width: 100%;
+	padding: 10px 12px;
+	font-size: 15px;
+	font-family: inherit;
+	background: var(--bg-elev-2);
+	color: var(--text);
+	border: 1px solid var(--border-strong);
+	border-radius: var(--radius-sm);
+	min-width: 0;
+}
+.text-input:focus {
+	outline: 2px solid var(--primary);
+	outline-offset: 1px;
+	border-color: var(--primary);
+}
+.text-input:disabled {
+	opacity: 0.6;
+}
+
+.input-with-suffix .text-input {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	border-right: 0;
+	padding-right: 6px;
+}
+
+.input-suffix {
+	display: flex;
+	align-items: center;
+	padding: 0 10px;
+	background: var(--bg-elev);
+	color: var(--text-dim);
+	border: 1px solid var(--border-strong);
+	border-left: 0;
+	border-top-right-radius: var(--radius-sm);
+	border-bottom-right-radius: var(--radius-sm);
+	font-size: 14px;
+	font-family: var(--font-mono);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 50%;
+}
+
+.input-suffix-btn {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	border-left: 1px solid var(--border-strong);
+}
+
+/* ====== Статус доступности логина ====== */
+.availability {
+	padding: 8px 12px;
+	font-size: 13px;
+	border-radius: var(--radius-sm);
+	background: var(--bg-elev-2);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	min-height: 36px;
+	display: flex;
+	align-items: center;
+	word-break: break-all;
+}
+.availability--idle {
+	color: var(--text-mute);
+}
+.availability--checking {
+	color: var(--text-dim);
+	font-style: italic;
+}
+.availability--ok {
+	color: #6ee7b7;
+	background: rgba(52, 211, 153, 0.1);
+	border-color: rgba(52, 211, 153, 0.4);
+}
+.availability--bad {
+	color: #fecaca;
+	background: rgba(239, 68, 68, 0.08);
+	border-color: rgba(239, 68, 68, 0.4);
+}
+.availability--ok strong,
+.availability--bad strong {
+	font-weight: 600;
+}
+
+/* ====== Переключатель режимов (random / custom) ====== */
+.mode-switch {
+	display: inline-flex;
+	gap: 0;
+	padding: 4px;
+	background: var(--bg-elev-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	align-self: flex-start;
+}
+.mode-switch-btn {
+	background: transparent;
+	border: 0;
+	color: var(--text-dim);
+	padding: 6px 12px;
+	font-size: 13px;
+	font-weight: 500;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	font-family: inherit;
+	transition: background 0.15s, color 0.15s;
+}
+.mode-switch-btn:hover:not(.active) {
+	color: var(--text);
+	background: var(--border);
+}
+.mode-switch-btn.active {
+	background: var(--primary);
+	color: #fff;
+}
+
 /* ====== Состояния и сообщения ====== */
 .state {
 	padding: 24px;

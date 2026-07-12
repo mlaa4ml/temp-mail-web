@@ -40,6 +40,28 @@ export type DeleteOneResult = {
 };
 
 /**
+ * Причина недоступности custom-логина.
+ * Зеркалит UnavailabilityReason на бэкенде.
+ */
+export type UnavailabilityReason =
+	| "invalid_login"
+	| "domain_not_supported"
+	| "reserved"
+	| "leased"
+	| "has_recent_mail";
+
+/**
+ * Ответ API на проверку доступности custom-логина.
+ * GET /mailbox/availability?login=...&domain=...
+ */
+export type MailboxAvailability = {
+	available: boolean;
+	email?: string;
+	reason?: UnavailabilityReason;
+	message?: string;
+};
+
+/**
  * Структура ошибки, возвращаемой API.
  */
 export type ApiErrorBody = {
