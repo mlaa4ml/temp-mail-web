@@ -96,6 +96,13 @@ docker compose up -d --build
 3. (Опционально) В **Variables** добавь `VITE_API_BASE_URL`, если хочешь ходить не на продовый API. Это нужно указывать **до** сборки, так как Vite подставляет значение на этапе `npm run build`.
 4. В **Settings** → **Networking** сгенерируй публичный домен.
 
+## Деплой на GitHub Pages
+
+1. В настройках репозитория на GitHub перейди в **Settings** → **Pages**.
+2. В секции **Build and deployment** выберите **Source: GitHub Actions**.
+3. Создайте workflow (уже добавлен в репозиторий как `.github/workflows/deploy.yml`). При пуше в ветку `main` сайт автоматически соберётся и развернётся по адресу `https://<username>.github.io/<repository-name>/`.
+4. При необходимости укажите переменную `VITE_API_BASE_URL` в GitHub Actions Variables.
+
 ## Переменные окружения
 
 | Имя | Описание | По умолчанию |
