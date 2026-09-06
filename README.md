@@ -96,11 +96,44 @@ docker compose up -d --build
 3. (Опционально) В **Variables** добавь `VITE_API_BASE_URL`, если хочешь ходить не на продовый API. Это нужно указывать **до** сборки, так как Vite подставляет значение на этапе `npm run build`.
 4. В **Settings** → **Networking** сгенерируй публичный домен.
 
+## Деплой на GitHub Pages
+
+GitHub Pages раздаёт **статику как есть** и не собирает Vite-проект. Если включить
+раздачу «из ветки» (`main` / `docs`), Pages отдаст исходный `index.html`, который
+ссылается на `/src/main.tsx` — сырой TypeScript. Браузер получит `text/html`
+вместо JS-модуля и упадёт с `NS_ERROR_CORRUPTED_CONTENT`, а `favicon.svg`
+вернёт 404 (он лежит в `public/` и попадает в `dist/` только после сборки).
+
+Поэтому в репозитории есть workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml),
+который собирает проект и публикует содержимое `dist/`.
+
+Как включить:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions**
+   (не «Deploy from a branch»!).
+2. Запушить в `main` (или запустить workflow вручную — *Actions → Deploy to
+   GitHub Pages → Run workflow*).
+3. Сайт будет доступен по адресу `https://<user>.github.io/<repo>/`.
+4. (Опционально) **Settings → Secrets and variables → Actions → Variables** →
+   добавить `VITE_API_BASE_URL`, если API другой.
+
+Что делает workflow:
+
+- собирает с `BASE_PATH=/<repo>/`, чтобы ссылки на JS/CSS/иконку указывали на
+  подкаталог репозитория, а не на корень домена;
+- копирует `dist/index.html` в `dist/404.html` (SPA-фоллбэк при прямом заходе
+  на вложенный URL);
+- создаёт `.nojekyll`, чтобы Pages не выкидывал файлы и папки, начинающиеся с `_`.
+
+Если сайт публикуется на собственном домене или в корне (`<user>.github.io`),
+задайте `BASE_PATH=/`.
+
 ## Переменные окружения
 
 | Имя | Описание | По умолчанию |
 |---|---|---|
 | `VITE_API_BASE_URL` | Базовый URL API temp-mail-on11 | `https://api.on11.ru` |
+| `BASE_PATH` | Public path сборки (нужен для деплоя в подкаталог, например GitHub Pages: `/temp-mail-web/`) | `/` |
 
 Переменная считывается **на этапе сборки**. Чтобы её изменить после деплоя, нужно пересобрать образ (например, через `Redeploy` в Railway с новой переменной).
 
