@@ -1,0 +1,71 @@
+name: Deploy to GitHub Pages
+
+# GitHub Pages не умеет собирать Vite-проект сам: если включить раздачу
+# «из ветки», Pages отдаёт исходный index.html, который ссылается на
+# /src/main.tsx — сырой TypeScript, который браузер грузить не станет
+# (MIME "text/html" / NS_ERROR_CORRUPTED_CONTENT). Поэтому собираем проект
+# здесь и публикуем содержимое dist/.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Разрешения, необходимые для публикации через actions/deploy-pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Не отменяем уже идущий деплой, но держим очередь из одного запуска
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          # https://<owner>.github.io/<repo>/ → base должен быть "/<repo>/"
+          BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'https://api.on11.ru' }}
+        run: npm run build
+
+      - name: SPA fallback + отключение Jekyll
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
